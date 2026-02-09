@@ -12,11 +12,19 @@
 <body>
   <header>
     <div class="container brand">
-      <h1>Krimo Météo Algérie</h1>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <img
+          src="./logo.png"
+          alt="Krimo Météo Algérie"
+          style="width:44px;height:44px;border-radius:12px;object-fit:cover;border:1px solid rgba(255,255,255,.15);"
+        />
+        <h1 style="margin:0;">Krimo Météo Algérie</h1>
+      </div>
+
       <div class="badge" id="statusBadge">● Chargement…</div>
     </div>
 
-    <!-- Bandeau alertes (sera rempli par app.js) -->
+    <!-- Bandeau alertes (rempli par app.js) -->
     <div class="container">
       <div id="alertBanner" class="alert hidden"></div>
     </div>
@@ -24,6 +32,7 @@
 
   <main class="container">
     <div class="grid">
+
       <!-- Bloc principal -->
       <section class="card">
         <h2>Prévisions (4 jours)</h2>
@@ -34,7 +43,7 @@
             <button id="refreshBtn">Actualiser</button>
           </div>
 
-          <!-- ICI on affiche les prévisions -->
+          <!-- Prévisions (cards jours) -->
           <div id="forecast" style="margin-top:12px;"></div>
 
           <div class="footer" style="margin-top:12px;">
@@ -46,7 +55,6 @@
             <h2 style="margin:0 0 10px 0;">Cartes météo</h2>
 
             <div class="mapGrid">
-
               <div class="mapCard">
                 <h3 style="margin:0 0 10px 0;">Vent / Rafales</h3>
                 <iframe
@@ -70,7 +78,6 @@
                   frameborder="0">
                 </iframe>
               </div>
-
             </div>
           </div>
 
@@ -84,12 +91,15 @@
           <p class="small">
             6 littoral • 6 proche littoral • 6 hauts plateaux • 6 Sud
           </p>
+
           <div id="cityGroups"></div>
+
           <p class="small" style="margin-top:12px">
             Astuce : tu peux remplacer/ajouter des villes dans <b>cities.js</b>.
           </p>
         </div>
       </aside>
+
     </div>
   </main>
 
