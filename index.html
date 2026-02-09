@@ -1,12 +1,69 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>Krimo Météo Algérie</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Krimo Météo Algérie</title>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./app.css" />
 </head>
+
 <body>
-    <h1>Krimo Météo Algérie</h1>
-    <p>Site de prévisions météorologiques – en construction</p>
+  <header>
+    <div class="container brand">
+      <h1>Krimo Météo Algérie</h1>
+      <div class="badge" id="statusBadge">● Chargement…</div>
+    </div>
+  </header>
+
+  <main class="container">
+    <div class="grid">
+      <!-- Bloc principal -->
+      <section class="card">
+        <h2>Prévisions (4 jours)</h2>
+        <div class="content">
+          <div class="row">
+            <select id="citySelect"></select>
+            <button id="refreshBtn">Actualiser</button>
+          </div>
+
+          <p class="small" id="metaLine"></p>
+
+          <div id="errorBox" class="alert hidden"></div>
+
+          <div class="kpis" id="kpis">
+            <!-- rempli par JS -->
+          </div>
+
+          <div class="days" id="days">
+            <!-- rempli par JS -->
+          </div>
+
+          <div class="footer">
+            Données météo : Open-Meteo • Heure locale de la ville • Style : Krimo Météo Algérie
+          </div>
+        </div>
+      </section>
+
+      <!-- Liste villes -->
+      <aside class="card">
+        <h2>Villes (24)</h2>
+        <div class="content">
+          <p class="small">
+            6 littoral • 6 proche littoral • 6 hauts plateaux • 6 Sud
+          </p>
+          <div id="cityGroups"></div>
+          <p class="small" style="margin-top:12px">
+            Astuce : tu peux remplacer/ajouter des villes dans <b>cities.js</b> (étape suivante).
+          </p>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Scripts -->
+  <script src="./cities.js"></script>
+  <script src="./app.js"></script>
 </body>
 </html>
