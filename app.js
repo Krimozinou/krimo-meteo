@@ -8,6 +8,9 @@ const statusBadge = document.getElementById("statusBadge");
 const alertBanner = document.getElementById("alertBanner");
 const cityGroupsDiv = document.getElementById("cityGroups"); // Synthèse nationale (on l'utilise)
 
+const refreshBtn = document.getElementById("refreshBtn");
+const refreshAlertsBtn = document.getElementById("refreshAlertsBtn"); // ✅ nouveau bouton (colonne droite)
+
 // -------------------- Seuils alertes (modifiable) --------------------
 const THRESH = {
   gust_orange: 75,
@@ -257,7 +260,6 @@ function renderCityForecast(city, data) {
 
 // -------------------- Rendu synthèse nationale (24 villes) --------------------
 function renderNationalSummary(rows) {
-  // rows: [{city, level, day, reason, label, group}] ou null
   if (!cityGroupsDiv) return;
 
   const red = rows.filter(r => r && r.level === "red");
@@ -326,7 +328,6 @@ function computeWorstCityAlert(city, dailyData) {
     const a = computeDayAlert({ gust, wind, rain });
     if (!a) continue;
 
-    // Priorité rouge > orange
     if (!worst) worst = { city, group: city.group, day, ...a };
     else if (a.level === "red" && worst.level !== "red") worst = { city, group: city.group, day, ...a };
   }
@@ -341,13 +342,11 @@ async function refreshNationalAlerts() {
 
   cityGroupsDiv.innerHTML = `<div class="small">Chargement synthèse nationale (24 villes)…</div>`;
 
-  // 24 requêtes daily légères, limit 6 en parallèle
   const results = await mapWithLimit(all, 6, async (c) => {
     const data = await fetchCityDailyForAlerts(c);
     return computeWorstCityAlert(c, data);
   });
 
-  // Nettoyer erreurs (si une ville échoue, on la compte ok mais on peut afficher plus tard)
   const cleaned = results
     .filter(r => r && !r.error)
     .map(r => r);
@@ -401,11 +400,18 @@ citySelect.addEventListener("change", () => {
   refreshSelectedCity();
 });
 
-const refreshBtn = document.getElementById("refreshBtn");
+// Bouton gauche: actualiser tout
 if (refreshBtn) {
   refreshBtn.addEventListener("click", () => {
     refreshSelectedCity();
-    refreshNationalAlerts(); // actualise aussi la synthèse nationale
+    refreshNationalAlerts();
+  });
+}
+
+// ✅ Bouton droite: actualiser uniquement les alertes nationales
+if (refreshAlertsBtn) {
+  refreshAlertsBtn.addEventListener("click", () => {
+    refreshNationalAlerts();
   });
 }
 
@@ -413,5 +419,5 @@ if (refreshBtn) {
 (async function init() {
   loadCities();
   await refreshSelectedCity();
-  await refreshNationalAlerts(); // B: synthèse 24 villes au chargement
+  await refreshNationalAlerts();
 })();
