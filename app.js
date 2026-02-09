@@ -1,4 +1,4 @@
-// Krimo Météo Algérie — Version B+ (icônes météo + carte Algérie + mode alerte majeure)
+// Krimo Météo Algérie — FIX (évite crash si DEFAULT_CITY absent)
 // API : Open-Meteo (gratuite)
 
 const citySelect = document.getElementById("citySelect");
@@ -6,13 +6,13 @@ const forecastDiv = document.getElementById("forecast");
 
 const statusBadge = document.getElementById("statusBadge");
 const alertBanner = document.getElementById("alertBanner");
-const cityGroupsDiv = document.getElementById("cityGroups"); // Synthèse nationale
+const cityGroupsDiv = document.getElementById("cityGroups");
 const dzMap = document.getElementById("dzMap");
 const dzMapLegend = document.getElementById("dzMapLegend");
 
 let NATIONAL_HAS_RED = false;
 
-// -------------------- Seuils alertes (modifiable) --------------------
+// -------------------- Seuils alertes --------------------
 const THRESH = {
   gust_orange: 75,
   gust_red: 100,
@@ -61,6 +61,12 @@ function setMajorAlertMode(on) {
   document.body.classList.toggle("major-alert", !!on);
 }
 
+function showFatal(msg) {
+  setStatus("Erreur");
+  if (forecastDiv) forecastDiv.innerHTML = "";
+  showBanner("❌ " + msg, "red");
+}
+
 // -------------------- Helpers data --------------------
 function groupHourlyByDay(times, values) {
   const map = new Map();
@@ -97,54 +103,38 @@ function formatFRDate(yyyy_mm_dd) {
   }
 }
 
-// -------------------- Icônes météo (Open-Meteo weather_code) --------------------
+// -------------------- Icônes météo --------------------
 function weatherIcon(code) {
-  // source logique Open-Meteo (wmo)
   if (code === 0) return "☀️";
   if (code === 1 || code === 2) return "🌤️";
   if (code === 3) return "☁️";
-
   if (code === 45 || code === 48) return "🌫️";
-
-  if (code === 51 || code === 53 || code === 55) return "🌦️";
-  if (code === 56 || code === 57) return "🌧️";
-
-  if (code === 61 || code === 63 || code === 65) return "🌧️";
-  if (code === 66 || code === 67) return "🌧️";
-
-  if (code === 71 || code === 73 || code === 75) return "❄️";
-  if (code === 77) return "🌨️";
-
-  if (code === 80 || code === 81 || code === 82) return "🌧️";
-
-  if (code === 85 || code === 86) return "🌨️";
-
-  if (code === 95) return "⛈️";
-  if (code === 96 || code === 99) return "⛈️";
-
+  if ([51,53,55,56,57].includes(code)) return "🌦️";
+  if ([61,63,65,66,67,80,81,82].includes(code)) return "🌧️";
+  if ([71,73,75,77,85,86].includes(code)) return "❄️";
+  if ([95,96,99].includes(code)) return "⛈️";
   return "🌡️";
 }
-
 function weatherLabel(code) {
   if (code === 0) return "Ciel dégagé";
   if (code === 1) return "Peu nuageux";
   if (code === 2) return "Partiellement nuageux";
   if (code === 3) return "Couvert";
   if (code === 45 || code === 48) return "Brouillard";
-  if (code === 51 || code === 53 || code === 55) return "Bruine";
-  if (code === 56 || code === 57) return "Bruine verglaçante";
-  if (code === 61 || code === 63 || code === 65) return "Pluie";
-  if (code === 66 || code === 67) return "Pluie verglaçante";
-  if (code === 71 || code === 73 || code === 75) return "Neige";
+  if ([51,53,55].includes(code)) return "Bruine";
+  if ([56,57].includes(code)) return "Bruine verglaçante";
+  if ([61,63,65].includes(code)) return "Pluie";
+  if ([66,67].includes(code)) return "Pluie verglaçante";
+  if ([71,73,75].includes(code)) return "Neige";
   if (code === 77) return "Grains de neige";
-  if (code === 80 || code === 81 || code === 82) return "Averses";
-  if (code === 85 || code === 86) return "Averses de neige";
+  if ([80,81,82].includes(code)) return "Averses";
+  if ([85,86].includes(code)) return "Averses de neige";
   if (code === 95) return "Orage";
-  if (code === 96 || code === 99) return "Orage fort";
+  if ([96,99].includes(code)) return "Orage fort";
   return "Conditions variables";
 }
 
-// Retourne une alerte journalière {level,label,reason}
+// -------------------- Alertes --------------------
 function computeDayAlert({ gust, wind, rain }) {
   if (gust !== null && gust >= THRESH.gust_red) {
     return { level: "red", label: "ALERTE VENT VIOLENT", reason: `Rafales ${Math.round(gust)} km/h` };
@@ -173,8 +163,18 @@ function flattenCities() {
   return all;
 }
 
-// -------------------- API calls --------------------
-// 1) Détails ville (daily + hourly)
+function getDefaultCitySafe() {
+  // 1) si DEFAULT_CITY existe
+  if (typeof DEFAULT_CITY !== "undefined" && DEFAULT_CITY && DEFAULT_CITY.lat) return DEFAULT_CITY;
+
+  // 2) sinon, première ville de CITIES
+  if (typeof CITIES !== "undefined" && CITIES?.length && CITIES[0]?.items?.length) {
+    return CITIES[0].items[0];
+  }
+  return null;
+}
+
+// -------------------- API --------------------
 async function fetchCityDetails(city) {
   const url =
     `https://api.open-meteo.com/v1/forecast` +
@@ -189,7 +189,6 @@ async function fetchCityDetails(city) {
   return res.json();
 }
 
-// 2) Alerte nationale (daily seulement = plus léger)
 async function fetchCityDailyForAlerts(city) {
   const url =
     `https://api.open-meteo.com/v1/forecast` +
@@ -203,7 +202,6 @@ async function fetchCityDailyForAlerts(city) {
   return res.json();
 }
 
-// Petite limite de concurrence (pour éviter 24 fetch en même temps)
 async function mapWithLimit(items, limit, mapper) {
   const results = new Array(items.length);
   let idx = 0;
@@ -225,18 +223,12 @@ async function mapWithLimit(items, limit, mapper) {
   return results;
 }
 
-// -------------------- Rendu détails ville --------------------
+// -------------------- Rendu ville --------------------
 function renderCityForecast(city, data) {
   forecastDiv.innerHTML = "";
 
-  const humidityByDay = groupHourlyByDay(
-    data.hourly.time,
-    data.hourly.relative_humidity_2m
-  );
-  const pressureByDay = groupHourlyByDay(
-    data.hourly.time,
-    data.hourly.surface_pressure
-  );
+  const humidityByDay = groupHourlyByDay(data.hourly.time, data.hourly.relative_humidity_2m);
+  const pressureByDay = groupHourlyByDay(data.hourly.time, data.hourly.surface_pressure);
 
   const dailyAlerts = [];
   let hasRedForSelected = false;
@@ -304,24 +296,19 @@ function renderCityForecast(city, data) {
     forecastDiv.appendChild(card);
   }
 
-  // Bandeau résumé (ville sélectionnée)
   if (dailyAlerts.length > 0) {
     const hasRed = dailyAlerts.some(a => a.level === "red");
     const level = hasRed ? "red" : "orange";
     const lines = dailyAlerts.map(a => `${formatFRDate(a.day)} : ${a.reason}`);
-    showBanner(
-      `⚠️ ${hasRed ? "ALERTE" : "VIGILANCE"} — ${city.name} : ${lines.join(" • ")}`,
-      level
-    );
+    showBanner(`⚠️ ${hasRed ? "ALERTE" : "VIGILANCE"} — ${city.name} : ${lines.join(" • ")}`, level);
   } else {
     showBanner(`✅ Pas d’alerte importante sur ${city.name} (sur 4 jours).`, "info");
   }
 
-  // MODE ALERTE MAJEURE = rouge (ville OU national)
   setMajorAlertMode(hasRedForSelected || NATIONAL_HAS_RED);
 }
 
-// -------------------- Rendu synthèse nationale (24 villes) --------------------
+// -------------------- Synthèse nationale --------------------
 function renderNationalSummary(rows) {
   if (!cityGroupsDiv) return;
 
@@ -373,7 +360,6 @@ function renderNationalSummary(rows) {
   `;
 }
 
-// Calcule la “pire” alerte sur 4 jours pour une ville
 function computeWorstCityAlert(city, dailyData) {
   const times = dailyData.daily.time;
   const gusts = dailyData.daily.wind_gusts_10m_max;
@@ -391,7 +377,6 @@ function computeWorstCityAlert(city, dailyData) {
     const a = computeDayAlert({ gust, wind, rain });
     if (!a) continue;
 
-    // Priorité rouge > orange
     if (!worst) worst = { city, group: city.group, day, ...a };
     else if (a.level === "red" && worst.level !== "red") worst = { city, group: city.group, day, ...a };
   }
@@ -400,9 +385,8 @@ function computeWorstCityAlert(city, dailyData) {
   return worst;
 }
 
-// -------------------- Carte Algérie (points cliquables) --------------------
+// -------------------- Carte Algérie --------------------
 function selectCityByName(name) {
-  // sélectionner l'option qui a le bon texte
   for (const opt of citySelect.querySelectorAll("option")) {
     if (opt.textContent === name) {
       citySelect.value = opt.value;
@@ -417,14 +401,12 @@ function renderDzMap(rows) {
 
   const allCities = flattenCities();
 
-  // map name -> level
   const levelByName = new Map();
   for (const r of rows) {
     if (!r || !r.city) continue;
     levelByName.set(r.city.name, r.level || "ok");
   }
 
-  // bounds (sur les 24 villes sélectionnées)
   let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
   for (const c of allCities) {
     minLat = Math.min(minLat, c.lat);
@@ -476,7 +458,6 @@ async function refreshNationalAlerts() {
 
   cityGroupsDiv.innerHTML = `<div class="small">Chargement synthèse nationale (24 villes)…</div>`;
 
-  // 24 requêtes daily légères, limit 6 en parallèle
   const results = await mapWithLimit(all, 6, async (c) => {
     const data = await fetchCityDailyForAlerts(c);
     return computeWorstCityAlert(c, data);
@@ -484,19 +465,17 @@ async function refreshNationalAlerts() {
 
   const cleaned = results.filter(r => r && !r.error).map(r => r);
 
-  // national red ?
   NATIONAL_HAS_RED = cleaned.some(r => r.level === "red");
-
   renderNationalSummary(cleaned);
   renderDzMap(cleaned);
 
-  // Mode alerte majeure si rouge au niveau national
-  // (si la ville sélectionnée est ok, ça reste major si national rouge)
   setMajorAlertMode(NATIONAL_HAS_RED);
 }
 
 // -------------------- Remplir liste ville --------------------
 function loadCities() {
+  if (!citySelect) return;
+
   citySelect.innerHTML = "";
 
   CITIES.forEach(group => {
@@ -513,10 +492,11 @@ function loadCities() {
     citySelect.appendChild(optGroup);
   });
 
-  citySelect.value = JSON.stringify(DEFAULT_CITY);
+  const def = getDefaultCitySafe();
+  if (def) citySelect.value = JSON.stringify(def);
 }
 
-// -------------------- Actions (ville sélectionnée) --------------------
+// -------------------- Ville sélectionnée --------------------
 async function refreshSelectedCity() {
   const city = JSON.parse(citySelect.value);
 
@@ -538,9 +518,7 @@ async function refreshSelectedCity() {
 }
 
 // -------------------- Events --------------------
-citySelect.addEventListener("change", () => {
-  refreshSelectedCity();
-});
+citySelect.addEventListener("change", () => refreshSelectedCity());
 
 const refreshBtn = document.getElementById("refreshBtn");
 if (refreshBtn) {
@@ -552,7 +530,25 @@ if (refreshBtn) {
 
 // -------------------- Init --------------------
 (async function init() {
-  loadCities();
-  await refreshSelectedCity();
-  await refreshNationalAlerts();
+  try {
+    if (typeof CITIES === "undefined") {
+      showFatal("cities.js n'est pas chargé. Vérifie que le fichier s'appelle bien cities.js et qu'il est dans le repo.");
+      return;
+    }
+
+    loadCities();
+
+    const def = getDefaultCitySafe();
+    if (!def) {
+      showFatal("Aucune ville trouvée dans CITIES. Vérifie cities.js.");
+      return;
+    }
+
+    await refreshSelectedCity();
+    await refreshNationalAlerts();
+    setStatus("OK");
+  } catch (e) {
+    console.error(e);
+    showFatal("Erreur JavaScript. Dis-moi si tu vois un message en rouge.");
+  }
 })();
