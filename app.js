@@ -3,10 +3,39 @@
 
 const citySelect = document.getElementById("citySelect");
 const forecastDiv = document.getElementById("forecast");
-
 const refreshBtn = document.getElementById("refreshBtn");
 const statusBadge = document.getElementById("statusBadge");
 const alertBanner = document.getElementById("alertBanner");
+
+// --- Seuils d'alerte (tu peux changer) ---
+const ALERTS = {
+  gust_kmh: 70,     // rafales
+  wind_kmh: 50,     // vent moyen/max
+  rain_mm: 20       // pluie/jour
+};
+
+function setStatus(type, text) {
+  // type: "loading" | "ok" | "error"
+  statusBadge.textContent = text;
+
+  if (type === "loading") {
+    statusBadge.style.color = "var(--muted)";
+  } else if (type === "ok") {
+    statusBadge.style.color = "#9CFFB3";
+  } else {
+    statusBadge.style.color = "#FFD6D6";
+  }
+}
+
+function showAlert(message) {
+  if (!message) {
+    alertBanner.classList.add("hidden");
+    alertBanner.textContent = "";
+    return;
+  }
+  alertBanner.textContent = message;
+  alertBanner.classList.remove("hidden");
+}
 
 // --- Helpers hourly -> daily ---
 function groupHourlyByDay(times, values) {
@@ -31,70 +60,35 @@ function summarizeDay(arr) {
   return { min, max, avg: sum / arr.length };
 }
 
-// --- UI helpers ---
-function setBadge(text) {
-  if (!statusBadge) return;
-  statusBadge.textContent = text;
+// Format date "YYYY-MM-DD" -> "Ven 13"
+function formatDayLabel(isoDate) {
+  const d = new Date(isoDate + "T00:00:00");
+  const days = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
+  return `${days[d.getDay()]} ${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function setAlert(text) {
-  if (!alertBanner) return;
-  if (!text) {
-    alertBanner.classList.add("hidden");
-    alertBanner.textContent = "";
-    return;
-  }
-  alertBanner.textContent = text;
-  alertBanner.classList.remove("hidden");
-}
+// Met à jour les cartes Windy (vent/pluie) en fonction de la ville
+function updateWindyMaps(city) {
+  const windMap = document.getElementById("windyMap");
+  const rainMap = document.getElementById("rainMap");
+  if (!windMap || !rainMap) return;
 
-// --- Alertes automatiques (seuils modifiables) ---
-function buildAlerts(data) {
-  // On prend surtout le 1er jour (jour 0)
-  const gust = data.daily?.wind_gusts_10m_max?.[0];
-  const rain = data.daily?.precipitation_sum?.[0];
-
-  const alerts = [];
-
-  // Seuils vent (tu peux changer)
-  if (gust >= 110) alerts.push(`🚨 VENT VIOLENT : rafales jusqu’à ${Math.round(gust)} km/h`);
-  else if (gust >= 90) alerts.push(`⚠️ FORT COUP DE VENT : rafales jusqu’à ${Math.round(gust)} km/h`);
-  else if (gust >= 70) alerts.push(`⚠️ VENT FORT : rafales jusqu’à ${Math.round(gust)} km/h`);
-
-  // Seuil pluie (tu peux changer)
-  if (rain >= 30) alerts.push(`🚨 PLUIES IMPORTANTES : cumul ~${Math.round(rain)} mm`);
-  else if (rain >= 15) alerts.push(`⚠️ PLUIES SOUTENUES : cumul ~${Math.round(rain)} mm`);
-
-  return alerts.join(" • ");
-}
-
-// --- Cartes Windy centrées sur la ville ---
-function updateMaps(city) {
   const lat = city.lat;
   const lon = city.lon;
 
-  const windMap = document.getElementById("windyMap");
-  const rainMap = document.getElementById("rainMap");
+  const base =
+    `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}` +
+    `&detailLat=${lat}&detailLon=${lon}` +
+    `&zoom=7&level=surface&product=ecmwf&metricWind=km%2Fh&metricTemp=%C2%B0C`;
 
-  if (windMap) {
-    windMap.src =
-      `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}` +
-      `&detailLat=${lat}&detailLon=${lon}` +
-      `&zoom=7&level=surface&overlay=wind&product=ecmwf` +
-      `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
-  }
-
-  if (rainMap) {
-    rainMap.src =
-      `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}` +
-      `&detailLat=${lat}&detailLon=${lon}` +
-      `&zoom=7&level=surface&overlay=rain&product=ecmwf` +
-      `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
-  }
+  windMap.src = `${base}&overlay=wind`;
+  rainMap.src = `${base}&overlay=rain`;
 }
 
 // Remplir la liste des villes
 function loadCities() {
+  citySelect.innerHTML = "";
+
   CITIES.forEach(group => {
     const optGroup = document.createElement("optgroup");
     optGroup.label = group.group;
@@ -110,14 +104,14 @@ function loadCities() {
   });
 
   citySelect.value = JSON.stringify(DEFAULT_CITY);
+  updateWindyMaps(DEFAULT_CITY);
   fetchWeather(DEFAULT_CITY);
-  updateMaps(DEFAULT_CITY);
 }
 
 // Récupérer la météo
 async function fetchWeather(city) {
-  setBadge("● Chargement…");
-  setAlert("");
+  setStatus("loading", "● Chargement…");
+  showAlert(""); // reset alerte
   forecastDiv.innerHTML = "Chargement des prévisions…";
 
   const url =
@@ -133,22 +127,18 @@ async function fetchWeather(city) {
     if (!res.ok) throw new Error("HTTP " + res.status);
     const data = await res.json();
 
-    displayForecast(data);
-    updateMaps(city);
-
-    const alertText = buildAlerts(data);
-    setAlert(alertText);
-
-    setBadge("● OK");
+    displayForecast(city, data);
+    setStatus("ok", "● OK");
   } catch (e) {
     console.error(e);
-    forecastDiv.innerHTML = "❌ Erreur de chargement météo";
-    setBadge("● Erreur");
+    setStatus("error", "● Erreur");
+    forecastDiv.innerHTML = "Erreur de chargement météo";
+    showAlert("⚠️ Impossible de charger les données météo. Réessaie.");
   }
 }
 
-// Affichage
-function displayForecast(data) {
+// Affichage prévisions + alertes
+function displayForecast(city, data) {
   forecastDiv.innerHTML = "";
 
   // hourly -> map par jour
@@ -161,6 +151,35 @@ function displayForecast(data) {
     data.hourly.surface_pressure
   );
 
+  // Construire une alerte globale (sur 4 jours)
+  let maxGust = 0;
+  let maxWind = 0;
+  let maxRain = 0;
+  let worstDay = null;
+
+  for (let i = 0; i < 4; i++) {
+    const gust = data.daily.wind_gusts_10m_max[i] ?? 0;
+    const wind = data.daily.wind_speed_10m_max[i] ?? 0;
+    const rain = data.daily.precipitation_sum[i] ?? 0;
+
+    if (gust > maxGust) { maxGust = gust; worstDay = data.daily.time[i]; }
+    if (wind > maxWind) maxWind = wind;
+    if (rain > maxRain) maxRain = rain;
+  }
+
+  // Afficher alerte si dépassement
+  const alertMsgs = [];
+  if (maxGust >= ALERTS.gust_kmh) alertMsgs.push(`🌬️ Rafales fortes (${maxGust} km/h)`);
+  if (maxWind >= ALERTS.wind_kmh) alertMsgs.push(`💨 Vent fort (${maxWind} km/h)`);
+  if (maxRain >= ALERTS.rain_mm) alertMsgs.push(`🌧️ Pluie marquée (${maxRain} mm)`);
+
+  if (alertMsgs.length > 0) {
+    showAlert(`⚠️ ALERTE ${city.name} – ${formatDayLabel(worstDay)} : ${alertMsgs.join(" • ")}`);
+  } else {
+    showAlert(""); // pas d'alerte
+  }
+
+  // Cartes jours
   for (let i = 0; i < 4; i++) {
     const day = data.daily.time[i];
 
@@ -183,36 +202,38 @@ function displayForecast(data) {
     card.className = "day";
 
     card.innerHTML = `
-      <h3>${day}</h3>
+      <div class="title">
+        <b>${formatDayLabel(day)}</b>
+        <span>${day}</span>
+      </div>
 
-      🌡️ <b>${tMin}°</b> / <b>${tMax}°</b><br>
-      💨 Vent : <b>${windMax} km/h</b><br>
-      🌬️ Rafales : <b>${gustMax} km/h</b><br>
-
-      💧 Humidité : <b>${hum.avg !== null ? hum.avg.toFixed(0) : "--"} %</b><br>
-      🧭 Pression : <b>${pres.avg !== null ? pres.avg.toFixed(0) : "--"} hPa</b><br>
-
-      🌧️ Pluie : <b>${rain} mm</b><br>
-      🌅 ${sunrise} | 🌇 ${sunset}
+      <div style="margin-top:8px;font-size:13px;line-height:1.6">
+        🌡️ <b>${tMin}°</b> / <b>${tMax}°</b><br>
+        💨 Vent : <b>${windMax} km/h</b><br>
+        🌬️ Rafales : <b>${gustMax} km/h</b><br>
+        💧 Humidité : <b>${hum.avg !== null ? hum.avg.toFixed(0) : "--"} %</b><br>
+        🧭 Pression : <b>${pres.avg !== null ? pres.avg.toFixed(0) : "--"} hPa</b><br>
+        🌧️ Pluie : <b>${rain} mm</b><br>
+        🌅 ${sunrise} | 🌇 ${sunset}
+      </div>
     `;
 
     forecastDiv.appendChild(card);
   }
 }
 
-// Changement de ville
+// Events
 citySelect.addEventListener("change", e => {
   const city = JSON.parse(e.target.value);
+  updateWindyMaps(city);
   fetchWeather(city);
 });
 
-// Bouton Actualiser
-if (refreshBtn) {
-  refreshBtn.addEventListener("click", () => {
-    const city = JSON.parse(citySelect.value);
-    fetchWeather(city);
-  });
-}
+refreshBtn.addEventListener("click", () => {
+  const city = JSON.parse(citySelect.value);
+  updateWindyMaps(city);
+  fetchWeather(city);
+});
 
 // Initialisation
 loadCities();
