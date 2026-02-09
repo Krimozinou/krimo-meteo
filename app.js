@@ -1,4 +1,4 @@
-// Krimo Météo Algérie — FIX (évite crash si DEFAULT_CITY absent)
+// Krimo Météo Algérie — Version stable (ne plante pas si éléments manquants)
 // API : Open-Meteo (gratuite)
 
 const citySelect = document.getElementById("citySelect");
@@ -7,8 +7,10 @@ const forecastDiv = document.getElementById("forecast");
 const statusBadge = document.getElementById("statusBadge");
 const alertBanner = document.getElementById("alertBanner");
 const cityGroupsDiv = document.getElementById("cityGroups");
-const dzMap = document.getElementById("dzMap");
-const dzMapLegend = document.getElementById("dzMapLegend");
+
+// (optionnels — si pas dans index.html, on ignore)
+const windyMap = document.getElementById("windyMap");
+const rainMap  = document.getElementById("rainMap");
 
 let NATIONAL_HAS_RED = false;
 
@@ -21,7 +23,7 @@ const THRESH = {
   rain_red: 50
 };
 
-// -------------------- Helpers UI --------------------
+// -------------------- UI --------------------
 function setStatus(text) {
   if (!statusBadge) return;
   statusBadge.textContent = `● ${text}`;
@@ -55,10 +57,6 @@ function showBanner(text, level) {
   }
 
   alertBanner.textContent = text;
-}
-
-function setMajorAlertMode(on) {
-  document.body.classList.toggle("major-alert", !!on);
 }
 
 function showFatal(msg) {
@@ -103,37 +101,6 @@ function formatFRDate(yyyy_mm_dd) {
   }
 }
 
-// -------------------- Icônes météo --------------------
-function weatherIcon(code) {
-  if (code === 0) return "☀️";
-  if (code === 1 || code === 2) return "🌤️";
-  if (code === 3) return "☁️";
-  if (code === 45 || code === 48) return "🌫️";
-  if ([51,53,55,56,57].includes(code)) return "🌦️";
-  if ([61,63,65,66,67,80,81,82].includes(code)) return "🌧️";
-  if ([71,73,75,77,85,86].includes(code)) return "❄️";
-  if ([95,96,99].includes(code)) return "⛈️";
-  return "🌡️";
-}
-function weatherLabel(code) {
-  if (code === 0) return "Ciel dégagé";
-  if (code === 1) return "Peu nuageux";
-  if (code === 2) return "Partiellement nuageux";
-  if (code === 3) return "Couvert";
-  if (code === 45 || code === 48) return "Brouillard";
-  if ([51,53,55].includes(code)) return "Bruine";
-  if ([56,57].includes(code)) return "Bruine verglaçante";
-  if ([61,63,65].includes(code)) return "Pluie";
-  if ([66,67].includes(code)) return "Pluie verglaçante";
-  if ([71,73,75].includes(code)) return "Neige";
-  if (code === 77) return "Grains de neige";
-  if ([80,81,82].includes(code)) return "Averses";
-  if ([85,86].includes(code)) return "Averses de neige";
-  if (code === 95) return "Orage";
-  if ([96,99].includes(code)) return "Orage fort";
-  return "Conditions variables";
-}
-
 // -------------------- Alertes --------------------
 function computeDayAlert({ gust, wind, rain }) {
   if (gust !== null && gust >= THRESH.gust_red) {
@@ -164,13 +131,8 @@ function flattenCities() {
 }
 
 function getDefaultCitySafe() {
-  // 1) si DEFAULT_CITY existe
   if (typeof DEFAULT_CITY !== "undefined" && DEFAULT_CITY && DEFAULT_CITY.lat) return DEFAULT_CITY;
-
-  // 2) sinon, première ville de CITIES
-  if (typeof CITIES !== "undefined" && CITIES?.length && CITIES[0]?.items?.length) {
-    return CITIES[0].items[0];
-  }
+  if (typeof CITIES !== "undefined" && CITIES?.length && CITIES[0]?.items?.length) return CITIES[0].items[0];
   return null;
 }
 
@@ -181,7 +143,7 @@ async function fetchCityDetails(city) {
     `?latitude=${city.lat}&longitude=${city.lon}` +
     `&timezone=auto` +
     `&forecast_days=4` +
-    `&daily=weather_code,temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,sunrise,sunset` +
+    `&daily=temperature_2m_max,temperature_2m_min,wind_speed_10m_max,wind_gusts_10m_max,precipitation_sum,sunrise,sunset` +
     `&hourly=relative_humidity_2m,surface_pressure`;
 
   const res = await fetch(url);
@@ -202,6 +164,7 @@ async function fetchCityDailyForAlerts(city) {
   return res.json();
 }
 
+// limiter concurrence
 async function mapWithLimit(items, limit, mapper) {
   const results = new Array(items.length);
   let idx = 0;
@@ -223,7 +186,7 @@ async function mapWithLimit(items, limit, mapper) {
   return results;
 }
 
-// -------------------- Rendu ville --------------------
+// -------------------- Render ville --------------------
 function renderCityForecast(city, data) {
   forecastDiv.innerHTML = "";
 
@@ -231,7 +194,6 @@ function renderCityForecast(city, data) {
   const pressureByDay = groupHourlyByDay(data.hourly.time, data.hourly.surface_pressure);
 
   const dailyAlerts = [];
-  let hasRedForSelected = false;
 
   for (let i = 0; i < 4; i++) {
     const day = data.daily.time[i];
@@ -249,15 +211,8 @@ function renderCityForecast(city, data) {
     const hum = summarizeDay(humidityByDay.get(day));
     const pres = summarizeDay(pressureByDay.get(day));
 
-    const code = data.daily.weather_code?.[i];
-    const icon = weatherIcon(code);
-    const label = weatherLabel(code);
-
     const dayAlert = computeDayAlert({ gust: gustMax, wind: windMax, rain });
-    if (dayAlert) {
-      dailyAlerts.push({ day, ...dayAlert });
-      if (dayAlert.level === "red") hasRedForSelected = true;
-    }
+    if (dayAlert) dailyAlerts.push({ day, ...dayAlert });
 
     const alertChip = dayAlert
       ? `<div style="
@@ -277,19 +232,16 @@ function renderCityForecast(city, data) {
     card.className = "day";
     card.innerHTML = `
       <div class="title">
-        <b>${formatFRDate(day)} • ${icon} ${label}</b>
+        <b>${formatFRDate(day)}</b>
         <span>${day}</span>
       </div>
-
       ${alertChip}
 
       🌡️ ${tMin}° / ${tMax}°<br>
       💨 Vent : ${Math.round(windMax)} km/h<br>
       🌬️ Rafales : ${Math.round(gustMax)} km/h<br>
-
       💧 Humidité : ${hum.avg !== null ? hum.avg.toFixed(0) : "--"} %<br>
       🧭 Pression : ${pres.avg !== null ? pres.avg.toFixed(0) : "--"} hPa<br>
-
       🌧️ Pluie : ${Math.round(rain)} mm<br>
       🌅 ${sunrise} | 🌇 ${sunset}
     `;
@@ -304,62 +256,9 @@ function renderCityForecast(city, data) {
   } else {
     showBanner(`✅ Pas d’alerte importante sur ${city.name} (sur 4 jours).`, "info");
   }
-
-  setMajorAlertMode(hasRedForSelected || NATIONAL_HAS_RED);
 }
 
 // -------------------- Synthèse nationale --------------------
-function renderNationalSummary(rows) {
-  if (!cityGroupsDiv) return;
-
-  const red = rows.filter(r => r && r.level === "red");
-  const orange = rows.filter(r => r && r.level === "orange");
-  const ok = rows.filter(r => r && r.level === "ok");
-
-  const htmlBlock = (title, list, color) => {
-    if (list.length === 0) {
-      return `
-        <div class="kpi" style="margin-top:10px;">
-          <div class="t">${title}</div>
-          <div class="v">Aucune</div>
-        </div>`;
-    }
-
-    const items = list
-      .sort((a,b) => a.city.name.localeCompare(b.city.name))
-      .map(r => `
-        <div style="
-          margin-top:10px;
-          padding:10px 12px;
-          border-radius:14px;
-          border:1px solid ${color};
-          background:rgba(255,255,255,.03);
-        ">
-          <b>${r.city.name}</b> <span style="opacity:.75">(${r.group})</span><br>
-          <span style="opacity:.9">${formatFRDate(r.day)} — ${r.reason}</span>
-        </div>
-      `).join("");
-
-    return `
-      <div class="card" style="margin-top:12px;">
-        <h2 style="padding:14px 14px 0;">${title} (${list.length})</h2>
-        <div class="content">${items}</div>
-      </div>
-    `;
-  };
-
-  cityGroupsDiv.innerHTML = `
-    <div class="small" style="margin-top:6px;">
-      Synthèse automatique sur 4 jours (24 villes) • Seuils: rafales ${THRESH.gust_orange}/${THRESH.gust_red} km/h • pluie ${THRESH.rain_orange}/${THRESH.rain_red} mm
-    </div>
-    ${htmlBlock("🔴 ALERTE ROUGE", red, "rgba(255,80,80,.55)")}
-    ${htmlBlock("🟠 VIGILANCE ORANGE", orange, "rgba(255,170,50,.55)")}
-    <div class="small" style="margin-top:10px;opacity:.8;">
-      Villes sans alerte majeure : ${ok.length}
-    </div>
-  `;
-}
-
 function computeWorstCityAlert(city, dailyData) {
   const times = dailyData.daily.time;
   const gusts = dailyData.daily.wind_gusts_10m_max;
@@ -385,78 +284,46 @@ function computeWorstCityAlert(city, dailyData) {
   return worst;
 }
 
-// -------------------- Carte Algérie --------------------
-function selectCityByName(name) {
-  for (const opt of citySelect.querySelectorAll("option")) {
-    if (opt.textContent === name) {
-      citySelect.value = opt.value;
-      return true;
+function renderNationalSummary(rows) {
+  if (!cityGroupsDiv) return;
+
+  const red = rows.filter(r => r && r.level === "red");
+  const orange = rows.filter(r => r && r.level === "orange");
+  const ok = rows.filter(r => r && r.level === "ok");
+
+  const block = (title, list, color) => {
+    if (list.length === 0) {
+      return `<div class="small" style="margin-top:10px;">${title} : aucune</div>`;
     }
-  }
-  return false;
-}
-
-function renderDzMap(rows) {
-  if (!dzMap) return;
-
-  const allCities = flattenCities();
-
-  const levelByName = new Map();
-  for (const r of rows) {
-    if (!r || !r.city) continue;
-    levelByName.set(r.city.name, r.level || "ok");
-  }
-
-  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
-  for (const c of allCities) {
-    minLat = Math.min(minLat, c.lat);
-    maxLat = Math.max(maxLat, c.lat);
-    minLon = Math.min(minLon, c.lon);
-    maxLon = Math.max(maxLon, c.lon);
-  }
-
-  dzMap.querySelectorAll(".dzDot").forEach(n => n.remove());
-
-  let countRed = 0, countOrange = 0, countOk = 0;
-
-  for (const c of allCities) {
-    const level = levelByName.get(c.name) || "ok";
-    if (level === "red") countRed++;
-    else if (level === "orange") countOrange++;
-    else countOk++;
-
-    const x = (c.lon - minLon) / (maxLon - minLon || 1);
-    const y = (maxLat - c.lat) / (maxLat - minLat || 1);
-
-    const dot = document.createElement("div");
-    dot.className = `dzDot ${level}`;
-    dot.style.left = `${x * 100}%`;
-    dot.style.top = `${y * 100}%`;
-    dot.title = `${c.name} — ${level === "red" ? "ALERTE ROUGE" : level === "orange" ? "VIGILANCE ORANGE" : "OK"}`;
-
-    dot.addEventListener("click", () => {
-      const okSel = selectCityByName(c.name);
-      if (okSel) refreshSelectedCity();
-    });
-
-    dzMap.appendChild(dot);
-  }
-
-  if (dzMapLegend) {
-    dzMapLegend.innerHTML = `
-      <span class="dzLegendPill"><span class="dzLegendDot" style="background:rgba(80,200,120,.95)"></span> OK (${countOk})</span>
-      <span class="dzLegendPill"><span class="dzLegendDot" style="background:rgba(255,170,50,.95)"></span> Orange (${countOrange})</span>
-      <span class="dzLegendPill"><span class="dzLegendDot" style="background:rgba(255,80,80,.95)"></span> Rouge (${countRed})</span>
-      <span class="dzLegendPill">📍 Clique un point pour ouvrir la ville</span>
+    const items = list
+      .sort((a,b) => a.city.name.localeCompare(b.city.name))
+      .map(r => `
+        <div style="margin-top:10px;padding:10px 12px;border-radius:14px;border:1px solid ${color};background:rgba(255,255,255,.03);">
+          <b>${r.city.name}</b> <span style="opacity:.75">(${r.group})</span><br>
+          <span style="opacity:.9">${formatFRDate(r.day)} — ${r.reason}</span>
+        </div>
+      `).join("");
+    return `
+      <div class="card" style="margin-top:12px;">
+        <h2 style="padding:14px 14px 0;">${title} (${list.length})</h2>
+        <div class="content">${items}</div>
+      </div>
     `;
-  }
+  };
+
+  cityGroupsDiv.innerHTML = `
+    <div class="small" style="margin-top:6px;">
+      Synthèse automatique sur 4 jours (24 villes)
+    </div>
+    ${block("🔴 ALERTE ROUGE", red, "rgba(255,80,80,.55)")}
+    ${block("🟠 VIGILANCE ORANGE", orange, "rgba(255,170,50,.55)")}
+    <div class="small" style="margin-top:10px;opacity:.8;">Villes OK : ${ok.length}</div>
+  `;
 }
 
 async function refreshNationalAlerts() {
   const all = flattenCities();
   if (!cityGroupsDiv) return;
-
-  cityGroupsDiv.innerHTML = `<div class="small">Chargement synthèse nationale (24 villes)…</div>`;
 
   const results = await mapWithLimit(all, 6, async (c) => {
     const data = await fetchCityDailyForAlerts(c);
@@ -467,15 +334,34 @@ async function refreshNationalAlerts() {
 
   NATIONAL_HAS_RED = cleaned.some(r => r.level === "red");
   renderNationalSummary(cleaned);
-  renderDzMap(cleaned);
-
-  setMajorAlertMode(NATIONAL_HAS_RED);
 }
 
-// -------------------- Remplir liste ville --------------------
+// -------------------- Maps Windy (centrer sur ville) --------------------
+function updateWindyMaps(city) {
+  // si les iframes existent, on met à jour leur src
+  if (!city) return;
+
+  const lat = city.lat;
+  const lon = city.lon;
+
+  if (windyMap) {
+    windyMap.src =
+      `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}` +
+      `&detailLat=${lat}&detailLon=${lon}&zoom=6&level=surface&overlay=wind&product=ecmwf` +
+      `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
+  }
+
+  if (rainMap) {
+    rainMap.src =
+      `https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}` +
+      `&detailLat=${lat}&detailLon=${lon}&zoom=6&level=surface&overlay=rain&product=ecmwf` +
+      `&metricWind=km%2Fh&metricTemp=%C2%B0C`;
+  }
+}
+
+// -------------------- Load villes --------------------
 function loadCities() {
   if (!citySelect) return;
-
   citySelect.innerHTML = "";
 
   CITIES.forEach(group => {
@@ -496,7 +382,7 @@ function loadCities() {
   if (def) citySelect.value = JSON.stringify(def);
 }
 
-// -------------------- Ville sélectionnée --------------------
+// -------------------- Refresh ville --------------------
 async function refreshSelectedCity() {
   const city = JSON.parse(citySelect.value);
 
@@ -506,19 +392,21 @@ async function refreshSelectedCity() {
 
   try {
     const data = await fetchCityDetails(city);
-    setStatus("OK");
     renderCityForecast(city, data);
+    updateWindyMaps(city);
+    setStatus("OK");
   } catch (e) {
     console.error(e);
     setStatus("Erreur");
     forecastDiv.innerHTML = "Erreur de chargement météo";
     showBanner("❌ Impossible de charger la météo. Réessaie.", "red");
-    setMajorAlertMode(true);
   }
 }
 
 // -------------------- Events --------------------
-citySelect.addEventListener("change", () => refreshSelectedCity());
+if (citySelect) {
+  citySelect.addEventListener("change", () => refreshSelectedCity());
+}
 
 const refreshBtn = document.getElementById("refreshBtn");
 if (refreshBtn) {
@@ -537,7 +425,6 @@ if (refreshBtn) {
     }
 
     loadCities();
-
     const def = getDefaultCitySafe();
     if (!def) {
       showFatal("Aucune ville trouvée dans CITIES. Vérifie cities.js.");
@@ -549,6 +436,6 @@ if (refreshBtn) {
     setStatus("OK");
   } catch (e) {
     console.error(e);
-    showFatal("Erreur JavaScript. Dis-moi si tu vois un message en rouge.");
+    showFatal("Erreur JavaScript. Envoie-moi une capture de l'erreur si tu peux.");
   }
 })();
