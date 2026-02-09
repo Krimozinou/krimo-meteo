@@ -15,6 +15,11 @@
       <h1>Krimo Météo Algérie</h1>
       <div class="badge" id="statusBadge">● Chargement…</div>
     </div>
+
+    <!-- Bandeau alertes (sera rempli par app.js) -->
+    <div class="container">
+      <div id="alertBanner" class="alert hidden"></div>
+    </div>
   </header>
 
   <main class="container">
@@ -23,27 +28,52 @@
       <section class="card">
         <h2>Prévisions (4 jours)</h2>
         <div class="content">
+
           <div class="row">
             <select id="citySelect"></select>
             <button id="refreshBtn">Actualiser</button>
-            <div id="forecast"></div>
           </div>
 
-          <p class="small" id="metaLine"></p>
+          <!-- ICI on affiche les prévisions -->
+          <div id="forecast" style="margin-top:12px;"></div>
 
-          <div id="errorBox" class="alert hidden"></div>
-
-          <div class="kpis" id="kpis">
-            <!-- rempli par JS -->
-          </div>
-
-          <div class="days" id="days">
-            <!-- rempli par JS -->
-          </div>
-
-          <div class="footer">
+          <div class="footer" style="margin-top:12px;">
             Données météo : Open-Meteo • Heure locale de la ville • Style : Krimo Météo Algérie
           </div>
+
+          <!-- CARTES MÉTÉO -->
+          <div style="margin-top:18px;">
+            <h2 style="margin:0 0 10px 0;">Cartes météo</h2>
+
+            <div class="mapGrid">
+
+              <div class="mapCard">
+                <h3 style="margin:0 0 10px 0;">Vent / Rafales</h3>
+                <iframe
+                  id="windyMap"
+                  title="Carte Vent Windy"
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  src="https://embed.windy.com/embed2.html?lat=36.7&lon=3.1&detailLat=36.7&detailLon=3.1&zoom=6&level=surface&overlay=wind&product=ecmwf&metricWind=km%2Fh&metricTemp=%C2%B0C"
+                  frameborder="0">
+                </iframe>
+              </div>
+
+              <div class="mapCard">
+                <h3 style="margin:0 0 10px 0;">Pluie</h3>
+                <iframe
+                  id="rainMap"
+                  title="Carte Pluie Windy"
+                  loading="lazy"
+                  referrerpolicy="no-referrer-when-downgrade"
+                  src="https://embed.windy.com/embed2.html?lat=36.7&lon=3.1&detailLat=36.7&detailLon=3.1&zoom=6&level=surface&overlay=rain&product=ecmwf&metricWind=km%2Fh&metricTemp=%C2%B0C"
+                  frameborder="0">
+                </iframe>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -56,7 +86,7 @@
           </p>
           <div id="cityGroups"></div>
           <p class="small" style="margin-top:12px">
-            Astuce : tu peux remplacer/ajouter des villes dans <b>cities.js</b> (étape suivante).
+            Astuce : tu peux remplacer/ajouter des villes dans <b>cities.js</b>.
           </p>
         </div>
       </aside>
