@@ -34,18 +34,18 @@ header{
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  flex-wrap:nowrap;              /* ✅ badge ne descend plus */
+  flex-wrap:nowrap;
 }
 .brand h1{
   margin:0;
-  font-size:clamp(18px, 4.6vw, 22px);  /* ✅ taille propre sur mobile */
+  font-size:clamp(18px, 4.6vw, 22px);
   letter-spacing:.3px;
   white-space:nowrap;
   overflow:hidden;
   text-overflow:ellipsis;
 }
 .badge{
-  flex:0 0 auto;                 /* ✅ évite qu’il saute en bas */
+  flex:0 0 auto;
   display:inline-flex;gap:8px;align-items:center;
   padding:7px 10px;border:1px solid var(--border);border-radius:999px;
   background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
@@ -141,14 +141,19 @@ button:active{transform:translateY(1px)}
 
 /* =========================
    CARTE ALGÉRIE (points visibles à 100%)
+   (✅ alias #dzMap au cas où)
 ========================= */
+#dzMap,
 .dzMap{
-  position: relative;      /* ✅ obligatoire */
+  position: relative;
+  display:block;
   width:100%;
   height: 320px;
+  min-height:320px;
   border-radius: 16px;
   border: 1px solid rgba(255,255,255,.10);
   overflow: hidden;
+  isolation:isolate; /* ✅ règle les soucis de z-index/pseudo-elements */
   background:
     radial-gradient(900px 380px at 20% 10%, rgba(57,198,240,.18), transparent 60%),
     radial-gradient(900px 380px at 90% 30%, rgba(139,92,246,.14), transparent 60%),
@@ -156,6 +161,7 @@ button:active{transform:translateY(1px)}
 }
 
 /* overlay EN DESSOUS des points */
+#dzMap::after,
 .dzMap::after{
   content:"";
   position:absolute;
@@ -163,7 +169,7 @@ button:active{transform:translateY(1px)}
   border-radius:14px;
   border:1px dashed rgba(255,255,255,.12);
   pointer-events:none;
-  z-index:1;               /* ✅ sous les points */
+  z-index:0; /* ✅ sous tout */
 }
 
 /* labels au-dessus */
@@ -176,7 +182,7 @@ button:active{transform:translateY(1px)}
   border-radius: 999px;
   background: rgba(0,0,0,.25);
   border: 1px solid rgba(255,255,255,.10);
-  z-index:20;              /* ✅ au-dessus */
+  z-index:3;
 }
 .dzMapTitleBottom{
   top:auto; bottom:12px;
@@ -192,7 +198,7 @@ button:active{transform:translateY(1px)}
   box-shadow: 0 0 0 2px rgba(255,255,255,.10);
   transform: translate(-50%, -50%);
   cursor: pointer;
-  z-index:10;              /* ✅ AU-DESSUS du ::after */
+  z-index:2; /* ✅ au-dessus du ::after */
   pointer-events:auto;
 }
 .dzDot.ok{ background: rgba(80, 200, 120, .95); }
