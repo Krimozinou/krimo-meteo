@@ -1,209 +1,72 @@
 :root{
   --bg:#070A12;
-  --card:#0E1426;
-  --card2:#121B33;
   --text:#EAF1FF;
   --muted:#A9B5D0;
-  --accent:#39C6F0;
-  --accent2:#8B5CF6;
   --border:rgba(255,255,255,.10);
 }
 
 *{box-sizing:border-box}
-html,body{
-  margin:0;
-  padding:0;
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial;
-}
-
 body{
-  background:
-    radial-gradient(1200px 600px at 20% -10%, rgba(57,198,240,.25), transparent 60%),
-    radial-gradient(1000px 600px at 100% 0%, rgba(139,92,246,.20), transparent 60%),
-    var(--bg);
+  margin:0;
+  font-family:system-ui;
+  background:#070A12;
   color:var(--text);
 }
 
-/* ================= HEADER ================= */
-header{
-  position:sticky;
-  top:0;
-  z-index:5;
-  background:rgba(7,10,18,.75);
-  backdrop-filter: blur(10px);
-  border-bottom:1px solid var(--border);
-}
-
-.container{
-  max-width:1100px;
-  margin:0 auto;
-  padding:14px 16px;
-}
-
-.brand{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
-}
-
-.brand h1{
-  margin:0;
-  font-size:22px;
-}
-
-.badge{
-  padding:7px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.04);
-  font-size:12px;
-  color:var(--muted);
-}
-
-/* ================= LAYOUT ================= */
-main{padding:18px 0 40px}
-
-.grid{
-  display:grid;
-  grid-template-columns:1fr;
-  gap:14px;
-}
-@media(min-width:900px){
-  .grid{grid-template-columns:1.2fr .8fr}
-}
+.container{max-width:1100px;margin:auto;padding:14px}
+.grid{display:grid;gap:14px}
+@media(min-width:900px){.grid{grid-template-columns:1.2fr .8fr}}
 
 .card{
-  border-radius:16px;
   border:1px solid var(--border);
-  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  border-radius:16px;
+  background:rgba(255,255,255,.03);
 }
 
-.card h2{
-  margin:0;
-  padding:14px 14px 0;
-  font-size:16px;
-  color:var(--muted);
-}
-
+.card h2{margin:0;padding:14px;color:var(--muted)}
 .card .content{padding:14px}
 
-.row{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
+.row{display:flex;gap:10px}
+select,button{padding:12px;border-radius:12px}
 
-select,button{
-  padding:12px;
-  border-radius:12px;
+.badge{
+  padding:6px 10px;
+  border-radius:999px;
   border:1px solid var(--border);
-  background:rgba(255,255,255,.04);
-  color:var(--text);
-}
-
-button{
-  background:linear-gradient(180deg, rgba(57,198,240,.22), rgba(139,92,246,.16));
-  font-weight:700;
-  cursor:pointer;
-}
-
-.small{
   font-size:12px;
-  color:var(--muted);
 }
 
-/* ================= ALERT ================= */
-.alert{
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid rgba(255,80,80,.35);
-  background:rgba(255,80,80,.10);
-  color:#ffd6d6;
-}
+.alert{padding:10px;border-radius:12px}
 .hidden{display:none}
 
-/* ================= MAPS WINDY ================= */
-.mapGrid{
-  display:grid;
-  gap:14px;
-}
-@media(min-width:900px){
-  .mapGrid{grid-template-columns:1fr 1fr}
-}
-
-.mapCard{
-  padding:14px;
-  border-radius:16px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,.04);
-}
-
-.mapCard iframe{
-  width:100%;
-  height:380px;
-  border:0;
-  border-radius:14px;
-}
-
-/* ================= CARTE ALGÉRIE (POINTS) ================= */
+/* ====== CARTE ALGÉRIE ====== */
 .dzMap{
   position:relative;
-  width:100%;
   height:360px;
   border-radius:16px;
-  border:1px solid rgba(255,255,255,.10);
-  overflow:hidden;
+  border:1px solid var(--border);
   background:
     radial-gradient(900px 380px at 20% 10%, rgba(57,198,240,.18), transparent 60%),
-    radial-gradient(900px 380px at 90% 30%, rgba(139,92,246,.14), transparent 60%),
-    rgba(255,255,255,.03);
-}
-
-.dzMap::after{
-  content:"";
-  position:absolute;
-  inset:14px;
-  border-radius:14px;
-  border:1px dashed rgba(255,255,255,.12);
-  pointer-events:none;
+    radial-gradient(900px 380px at 90% 30%, rgba(139,92,246,.14), transparent 60%);
+  overflow:hidden;
 }
 
 .dzMapTitle{
   position:absolute;
-  left:14px;
-  top:12px;
+  top:10px;
+  left:10px;
   padding:6px 10px;
-  border-radius:999px;
   background:rgba(0,0,0,.35);
-  border:1px solid rgba(255,255,255,.15);
+  border-radius:999px;
   font-size:12px;
 }
 
 .dzMapTitleBottom{
   top:auto;
-  bottom:12px;
+  bottom:10px;
 }
 
-/* ================= DOTS ================= */
-.dzDot{
-  position:absolute;
-  width:12px;
-  height:12px;
-  border-radius:50%;
-  border:2px solid rgba(0,0,0,.35);
-  transform:translate(-50%,-50%);
-}
-
-.dzDot.ok{background:#39ff88}
-.dzDot.orange{background:#ffb020}
-.dzDot.red{
-  background:#ff4d4d;
-  animation: blink 1.2s infinite;
-}
-
-@keyframes blink{
-  0%,100%{filter:brightness(1)}
-  50%{filter:brightness(1.4)}
-}
+/* ====== WINDY ====== */
+.mapGrid{display:grid;gap:14px}
+@media(min-width:900px){.mapGrid{grid-template-columns:1fr 1fr}}
+.mapCard iframe{width:100%;height:360px;border:0;border-radius:14px}
