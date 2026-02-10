@@ -1,4 +1,4 @@
-// Krimo Météo Algérie — Version stable (détails ville + alertes 24 villes + points carte)
+// Krimo Météo Algérie — Version B++ (détails ville + alertes 24 villes + points carte)
 // API : Open-Meteo (gratuite)
 
 const citySelect = document.getElementById("citySelect");
@@ -11,7 +11,7 @@ const cityGroupsDiv = document.getElementById("cityGroups");
 const dzMapEl = document.getElementById("dzMap");
 const dzLegendEl = document.getElementById("dzMapLegend");
 
-// -------------------- Seuils alertes --------------------
+// -------------------- Seuils alertes (modifiable) --------------------
 const THRESH = {
   gust_orange: 75,
   gust_red: 100,
@@ -20,7 +20,7 @@ const THRESH = {
   rain_red: 50
 };
 
-// -------------------- UI --------------------
+// -------------------- Helpers UI --------------------
 function setStatus(text) {
   if (!statusBadge) return;
   statusBadge.textContent = `● ${text}`;
@@ -121,7 +121,7 @@ function flattenCities() {
   return all;
 }
 
-// -------------------- API --------------------
+// -------------------- API calls --------------------
 async function fetchCityDetails(city) {
   const url =
     `https://api.open-meteo.com/v1/forecast` +
@@ -149,6 +149,7 @@ async function fetchCityDailyForAlerts(city) {
   return res.json();
 }
 
+// Petite limite de concurrence
 async function mapWithLimit(items, limit, mapper) {
   const results = new Array(items.length);
   let idx = 0;
@@ -170,18 +171,17 @@ async function mapWithLimit(items, limit, mapper) {
   return results;
 }
 
-// -------------------- Rendu détails ville (cards propres) --------------------
+// -------------------- ✅ Rendu détails ville (RESTORE joli) --------------------
 function renderCityForecast(city, data) {
   forecastDiv.innerHTML = "";
 
-  const humidityByDay = groupHourlyByDay(
-    data.hourly.time,
-    data.hourly.relative_humidity_2m
-  );
-  const pressureByDay = groupHourlyByDay(
-    data.hourly.time,
-    data.hourly.surface_pressure
-  );
+  // ✅ conteneur grid attendu par ton CSS
+  const daysWrap = document.createElement("div");
+  daysWrap.className = "days";
+  forecastDiv.appendChild(daysWrap);
+
+  const humidityByDay = groupHourlyByDay(data.hourly.time, data.hourly.relative_humidity_2m);
+  const pressureByDay = groupHourlyByDay(data.hourly.time, data.hourly.surface_pressure);
 
   const dailyAlerts = [];
 
@@ -206,16 +206,16 @@ function renderCityForecast(city, data) {
 
     const alertChip = dayAlert
       ? `<div style="
-            margin:10px 0 8px 0;
-            padding:8px 10px;
-            border-radius:12px;
-            font-weight:900;
-            border:1px solid ${dayAlert.level === "red" ? "rgba(255,80,80,.55)" : "rgba(255,170,50,.55)"};
-            background:${dayAlert.level === "red" ? "rgba(255,80,80,.16)" : "rgba(255,170,50,.12)"};
-            color:${dayAlert.level === "red" ? "#ffd6d6" : "#ffe7c6"};
-          ">
-          ${dayAlert.level === "red" ? "🔴" : "🟠"} ${dayAlert.label} — ${dayAlert.reason}
-        </div>`
+          margin:10px 0 6px 0;
+          padding:8px 10px;
+          border-radius:12px;
+          font-weight:900;
+          border:1px solid ${dayAlert.level === "red" ? "rgba(255,80,80,.55)" : "rgba(255,170,50,.55)"};
+          background:${dayAlert.level === "red" ? "rgba(255,80,80,.16)" : "rgba(255,170,50,.12)"};
+          color:${dayAlert.level === "red" ? "#ffd6d6" : "#ffe7c6"};
+        ">
+        ${dayAlert.level === "red" ? "🔴" : "🟠"} ${dayAlert.label} — ${dayAlert.reason}
+      </div>`
       : "";
 
     const card = document.createElement("div");
@@ -225,9 +225,7 @@ function renderCityForecast(city, data) {
         <b>${formatFRDate(day)}</b>
         <span>${day}</span>
       </div>
-
       ${alertChip}
-
       🌡️ ${tMin}° / ${tMax}°<br>
       💨 Vent : ${Math.round(windMax)} km/h<br>
       🌬️ Rafales : ${Math.round(gustMax)} km/h<br>
@@ -237,7 +235,7 @@ function renderCityForecast(city, data) {
       🌅 ${sunrise} | 🌇 ${sunset}
     `;
 
-    forecastDiv.appendChild(card);
+    daysWrap.appendChild(card);
   }
 
   if (dailyAlerts.length > 0) {
@@ -250,7 +248,7 @@ function renderCityForecast(city, data) {
   }
 }
 
-// -------------------- Synthèse nationale --------------------
+// -------------------- Rendu synthèse nationale (RESTORE infos) --------------------
 function renderNationalSummary(rows) {
   if (!cityGroupsDiv) return;
 
@@ -258,7 +256,7 @@ function renderNationalSummary(rows) {
   const orange = rows.filter(r => r && r.level === "orange");
   const ok = rows.filter(r => r && r.level === "ok");
 
-  const htmlBlock = (title, list, color) => {
+  const block = (title, list, borderColor) => {
     if (list.length === 0) {
       return `
         <div class="kpi" style="margin-top:10px;">
@@ -268,19 +266,21 @@ function renderNationalSummary(rows) {
     }
 
     const items = list
-      .sort((a,b) => a.city.name.localeCompare(b.city.name))
+      .sort((a, b) => a.city.name.localeCompare(b.city.name))
       .map(r => `
         <div style="
           margin-top:10px;
-          padding:10px 12px;
+          padding:12px 12px;
           border-radius:14px;
-          border:1px solid ${color};
+          border:1px solid ${borderColor};
           background:rgba(255,255,255,.03);
         ">
-          <b>${r.city.name}</b> <span style="opacity:.75">(${r.group})</span><br>
-          <span style="opacity:.9">${formatFRDate(r.day)} — ${r.reason}</span>
+          <b style="font-size:16px">${r.city.name}</b>
+          <span style="opacity:.75"> (${r.group})</span><br>
+          <span style="opacity:.95">${formatFRDate(r.day)} — ${r.reason}</span>
         </div>
-      `).join("");
+      `)
+      .join("");
 
     return `
       <div class="card" style="margin-top:12px;">
@@ -294,12 +294,15 @@ function renderNationalSummary(rows) {
     <div class="small" style="margin-top:6px;">
       Synthèse automatique sur 4 jours (24 villes) • Seuils: rafales ${THRESH.gust_orange}/${THRESH.gust_red} km/h • pluie ${THRESH.rain_orange}/${THRESH.rain_red} mm
     </div>
-    ${htmlBlock("🔴 ALERTE ROUGE", red, "rgba(255,80,80,.55)")}
-    ${htmlBlock("🟠 VIGILANCE ORANGE", orange, "rgba(255,170,50,.55)")}
-    <div class="small" style="margin-top:10px;opacity:.8;">Villes sans alerte majeure : ${ok.length}</div>
+    ${block("🔴 ALERTE ROUGE", red, "rgba(255,80,80,.55)")}
+    ${block("🟠 VIGILANCE ORANGE", orange, "rgba(255,170,50,.55)")}
+    <div class="small" style="margin-top:10px;opacity:.8;">
+      ✅ Villes sans alerte majeure : ${ok.length}
+    </div>
   `;
 }
 
+// Calcule la “pire” alerte sur 4 jours pour une ville
 function computeWorstCityAlert(city, dailyData) {
   const times = dailyData.daily.time;
   const gusts = dailyData.daily.wind_gusts_10m_max;
@@ -325,7 +328,7 @@ function computeWorstCityAlert(city, dailyData) {
   return worst;
 }
 
-// -------------------- ✅ Carte DZ points (RESTORE) --------------------
+// -------------------- ✅ Carte points (OK) --------------------
 const DZ_BOUNDS = {
   latMin: 18.9,
   latMax: 37.2,
@@ -355,8 +358,6 @@ function renderDZLegend(countOk, countOrange, countRed) {
 function renderVigilanceMap(rows) {
   if (!dzMapEl) return;
 
-  // IMPORTANT: on garde "Nord/Sud" déjà dans ton HTML, donc on ne fait pas innerHTML=""
-  // On supprime seulement les anciens points.
   dzMapEl.querySelectorAll(".dzDot").forEach(el => el.remove());
 
   const w = dzMapEl.clientWidth || 600;
@@ -391,7 +392,7 @@ function renderVigilanceMap(rows) {
   renderDZLegend(countOk, countOrange, countRed);
 }
 
-// -------------------- Refresh national --------------------
+// -------------------- National refresh --------------------
 async function refreshNationalAlerts() {
   const all = flattenCities();
   if (!cityGroupsDiv) return;
@@ -407,13 +408,13 @@ async function refreshNationalAlerts() {
 
   renderNationalSummary(cleaned);
 
-  // ✅ attendre un tick pour être sûr que dzMap a une taille (mobile)
+  // ✅ petit délai pour que la carte ait une taille sur mobile
   setTimeout(() => renderVigilanceMap(cleaned), 50);
 
   setStatus("OK");
 }
 
-// -------------------- Cities select --------------------
+// -------------------- Liste villes (select) --------------------
 function loadCities() {
   citySelect.innerHTML = "";
 
@@ -434,7 +435,7 @@ function loadCities() {
   citySelect.value = JSON.stringify(DEFAULT_CITY);
 }
 
-// -------------------- Selected city --------------------
+// -------------------- Actions ville --------------------
 async function refreshSelectedCity() {
   const city = JSON.parse(citySelect.value);
 
@@ -472,10 +473,4 @@ if (refreshBtn) {
   loadCities();
   await refreshSelectedCity();
   await refreshNationalAlerts();
-
-  // ✅ recalc points si rotation/resize
-  window.addEventListener("resize", () => {
-    // On relance juste le rendu des points avec les dernières données visibles dans la synthèse
-    // Simple: on reclique sur Actualiser si besoin, sinon on laisse.
-  });
 })();
