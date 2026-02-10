@@ -175,7 +175,6 @@ async function mapWithLimit(items, limit, mapper) {
 function renderCityForecast(city, data) {
   forecastDiv.innerHTML = "";
 
-  // ✅ conteneur grid attendu par ton CSS
   const daysWrap = document.createElement("div");
   daysWrap.className = "days";
   forecastDiv.appendChild(daysWrap);
@@ -302,7 +301,6 @@ function renderNationalSummary(rows) {
   `;
 }
 
-// Calcule la “pire” alerte sur 4 jours pour une ville
 function computeWorstCityAlert(city, dailyData) {
   const times = dailyData.daily.time;
   const gusts = dailyData.daily.wind_gusts_10m_max;
@@ -328,7 +326,7 @@ function computeWorstCityAlert(city, dailyData) {
   return worst;
 }
 
-// -------------------- ✅ Carte points (FIX BÉTON) --------------------
+// -------------------- ✅ Carte points (FIX DEFINITIF) --------------------
 const DZ_BOUNDS = {
   latMin: 18.9,
   latMax: 37.2,
@@ -355,17 +353,26 @@ function renderDZLegend(countOk, countOrange, countRed) {
   `;
 }
 
+// ✅ attendre que la carte ait une vraie taille (mobile)
+function waitForMapReady(cb, tries = 0) {
+  if (!dzMapEl) return;
+  const w = dzMapEl.clientWidth;
+  const h = dzMapEl.clientHeight;
+  if (w > 50 && h > 50) return cb();
+  if (tries > 60) return; // ~1s
+  requestAnimationFrame(() => waitForMapReady(cb, tries + 1));
+}
+
 function renderVigilanceMap(rows) {
   if (!dzMapEl) return;
 
-  // ✅ sécurité: la carte doit être relative
+  // sécurité (au cas où ton CSS a sauté)
   dzMapEl.style.position = "relative";
 
-  // effacer uniquement les anciens points
   dzMapEl.querySelectorAll(".dzDot").forEach(el => el.remove());
 
   const w = dzMapEl.clientWidth || 600;
-  const h = dzMapEl.clientHeight || 360;
+  const h = dzMapEl.clientHeight || 320;
 
   let countOk = 0, countOrange = 0, countRed = 0;
 
@@ -374,36 +381,12 @@ function renderVigilanceMap(rows) {
 
     const { left, top } = projectToMap(r.city.lat, r.city.lon, w, h);
 
-    // ✅ bouton = clic fiable mobile + style en dur (CSS peut être cassé)
-    const dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "dzDot";
+    const dot = document.createElement("div");
+    dot.className = "dzDot " + (r.level === "red" ? "red" : r.level === "orange" ? "orange" : "ok");
+    dot.style.left = `${left}px`;
+    dot.style.top = `${top}px`;
+    dot.style.zIndex = "10"; // ✅ au-dessus de tout
     dot.title = r.city.name;
-
-    const color =
-      r.level === "red" ? "#ff4d4d" :
-      r.level === "orange" ? "#ffb020" :
-      "#39ff88";
-
-    dot.style.cssText = `
-      position:absolute;
-      left:${left}px;
-      top:${top}px;
-      width:12px;
-      height:12px;
-      border-radius:999px;
-      border:2px solid rgba(0,0,0,.45);
-      background:${color};
-      box-shadow:0 0 0 6px rgba(0,0,0,.12);
-      transform:translate(-50%,-50%);
-      padding:0;
-      margin:0;
-      cursor:pointer;
-      z-index:5;
-      outline:none;
-      appearance:none;
-      -webkit-appearance:none;
-    `;
 
     if (r.level === "red") countRed++;
     else if (r.level === "orange") countOrange++;
@@ -422,6 +405,8 @@ function renderVigilanceMap(rows) {
 }
 
 // -------------------- National refresh --------------------
+let __lastCleanedRows = [];
+
 async function refreshNationalAlerts() {
   const all = flattenCities();
   if (!cityGroupsDiv) return;
@@ -434,16 +419,23 @@ async function refreshNationalAlerts() {
   });
 
   const cleaned = results.filter(r => r && !r.error);
+  __lastCleanedRows = cleaned;
 
   renderNationalSummary(cleaned);
 
-  // ✅ rendu carte après layout (mobile)
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => renderVigilanceMap(cleaned));
-  });
+  // ✅ rendu carte seulement quand la taille est prête
+  waitForMapReady(() => renderVigilanceMap(cleaned));
 
   setStatus("OK");
 }
+
+// ✅ rerender points quand orientation/resize change
+window.addEventListener("resize", () => {
+  if (__lastCleanedRows.length) waitForMapReady(() => renderVigilanceMap(__lastCleanedRows));
+});
+window.addEventListener("orientationchange", () => {
+  if (__lastCleanedRows.length) setTimeout(() => waitForMapReady(() => renderVigilanceMap(__lastCleanedRows)), 100);
+});
 
 // -------------------- Liste villes (select) --------------------
 function loadCities() {
