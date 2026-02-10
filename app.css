@@ -1,72 +1,222 @@
 :root{
   --bg:#070A12;
+  --card:#0E1426;
+  --card2:#121B33;
   --text:#EAF1FF;
   --muted:#A9B5D0;
+  --accent:#39C6F0;
+  --accent2:#8B5CF6;
   --border:rgba(255,255,255,.10);
 }
 
 *{box-sizing:border-box}
+html,body{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial}
 body{
-  margin:0;
-  font-family:system-ui;
-  background:#070A12;
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(57,198,240,.25), transparent 60%),
+    radial-gradient(1000px 600px at 100% 0%, rgba(139,92,246,.20), transparent 60%),
+    var(--bg);
   color:var(--text);
 }
 
-.container{max-width:1100px;margin:auto;padding:14px}
-.grid{display:grid;gap:14px}
+/* =========================
+   HEADER (fix mobile wrap)
+========================= */
+header{
+  position:sticky;top:0;z-index:50;
+  background:rgba(7,10,18,.75);
+  backdrop-filter: blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.container{max-width:1100px;margin:0 auto;padding:14px 16px}
+.brand{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:nowrap;              /* ✅ badge ne descend plus */
+}
+.brand h1{
+  margin:0;
+  font-size:clamp(18px, 4.6vw, 22px);  /* ✅ taille propre sur mobile */
+  letter-spacing:.3px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+.badge{
+  flex:0 0 auto;                 /* ✅ évite qu’il saute en bas */
+  display:inline-flex;gap:8px;align-items:center;
+  padding:7px 10px;border:1px solid var(--border);border-radius:999px;
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+  color:var(--muted);font-size:12px;
+}
+
+main{padding:18px 0 40px}
+.grid{display:grid;grid-template-columns:1fr;gap:14px}
 @media(min-width:900px){.grid{grid-template-columns:1.2fr .8fr}}
 
 .card{
+  background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
   border:1px solid var(--border);
   border-radius:16px;
-  background:rgba(255,255,255,.03);
-}
-
-.card h2{margin:0;padding:14px;color:var(--muted)}
-.card .content{padding:14px}
-
-.row{display:flex;gap:10px}
-select,button{padding:12px;border-radius:12px}
-
-.badge{
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  font-size:12px;
-}
-
-.alert{padding:10px;border-radius:12px}
-.hidden{display:none}
-
-/* ====== CARTE ALGÉRIE ====== */
-.dzMap{
-  position:relative;
-  height:360px;
-  border-radius:16px;
-  border:1px solid var(--border);
-  background:
-    radial-gradient(900px 380px at 20% 10%, rgba(57,198,240,.18), transparent 60%),
-    radial-gradient(900px 380px at 90% 30%, rgba(139,92,246,.14), transparent 60%);
   overflow:hidden;
 }
+.card h2{margin:0;padding:14px 14px 0;font-size:16px;color:var(--muted);font-weight:600}
+.card .content{padding:14px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 
+select, input{
+  width:100%;
+  padding:12px 12px;
+  border-radius:12px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,.04);
+  color:var(--text);
+  outline:none;
+}
+@media(min-width:560px){
+  .row select, .row input{width:auto;min-width:240px}
+}
+
+button{
+  padding:12px 14px;border-radius:12px;border:1px solid var(--border);
+  background:linear-gradient(180deg, rgba(57,198,240,.22), rgba(139,92,246,.16));
+  color:var(--text);font-weight:700;cursor:pointer
+}
+button:active{transform:translateY(1px)}
+.small{font-size:12px;color:var(--muted)}
+.footer{opacity:.9;text-align:center;color:var(--muted);font-size:12px;margin-top:18px}
+
+.alert{
+  padding:10px 12px;border-radius:12px;border:1px solid rgba(255,80,80,.35);
+  background:rgba(255,80,80,.10);
+  color:#ffd6d6;
+}
+.hidden{display:none}
+
+/* =========================
+   JOURS (grille)
+========================= */
+.days{
+  display:grid;
+  grid-template-columns:1fr;
+  gap:10px;
+}
+@media(min-width:560px){.days{grid-template-columns:repeat(2,1fr)}}
+
+.day{
+  padding:12px;border-radius:14px;border:1px solid var(--border);
+  background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+}
+.day .title{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.day .title b{font-size:14px}
+.day .title span{font-size:12px;color:var(--muted)}
+
+/* =========================
+   CARTES MÉTÉO (Windy)
+========================= */
+.mapGrid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+.mapCard{
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(255,255,255,.04);
+}
+.mapCard iframe{
+  width:100%;
+  height: 360px;
+  border:0;
+  border-radius: 14px;
+}
+@media (min-width: 900px){
+  .mapGrid{ grid-template-columns: 1fr 1fr; }
+  .mapCard iframe{ height: 420px; }
+}
+
+/* =========================
+   CARTE ALGÉRIE (points visibles à 100%)
+========================= */
+.dzMap{
+  position: relative;      /* ✅ obligatoire */
+  width:100%;
+  height: 320px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.10);
+  overflow: hidden;
+  background:
+    radial-gradient(900px 380px at 20% 10%, rgba(57,198,240,.18), transparent 60%),
+    radial-gradient(900px 380px at 90% 30%, rgba(139,92,246,.14), transparent 60%),
+    rgba(255,255,255,.03);
+}
+
+/* overlay EN DESSOUS des points */
+.dzMap::after{
+  content:"";
+  position:absolute;
+  inset:14px;
+  border-radius:14px;
+  border:1px dashed rgba(255,255,255,.12);
+  pointer-events:none;
+  z-index:1;               /* ✅ sous les points */
+}
+
+/* labels au-dessus */
 .dzMapTitle{
   position:absolute;
-  top:10px;
-  left:10px;
-  padding:6px 10px;
-  background:rgba(0,0,0,.35);
-  border-radius:999px;
+  left:14px; top:12px;
   font-size:12px;
+  color: rgba(255,255,255,.75);
+  padding:6px 10px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.10);
+  z-index:20;              /* ✅ au-dessus */
 }
-
 .dzMapTitleBottom{
-  top:auto;
-  bottom:10px;
+  top:auto; bottom:12px;
 }
 
-/* ====== WINDY ====== */
-.mapGrid{display:grid;gap:14px}
-@media(min-width:900px){.mapGrid{grid-template-columns:1fr 1fr}}
-.mapCard iframe{width:100%;height:360px;border:0;border-radius:14px}
+/* POINTS */
+.dzDot{
+  position:absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  border: 2px solid rgba(0,0,0,.35);
+  box-shadow: 0 0 0 2px rgba(255,255,255,.10);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  z-index:10;              /* ✅ AU-DESSUS du ::after */
+  pointer-events:auto;
+}
+.dzDot.ok{ background: rgba(80, 200, 120, .95); }
+.dzDot.orange{ background: rgba(255, 170, 50, .95); }
+.dzDot.red{ background: rgba(255, 80, 80, .95); }
+
+@keyframes krimoBlink {
+  0%, 100% { filter: brightness(1); transform: translate(-50%,-50%); }
+  50% { filter: brightness(1.35); transform: translate(-50%,-52%); }
+}
+.dzDot.red{ animation: krimoBlink 1.2s infinite; }
+
+.dzLegendPill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:7px 10px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  margin-right:8px;
+  margin-bottom:8px;
+}
+.dzLegendDot{
+  width:10px;height:10px;border-radius:50%;
+  border:2px solid rgba(0,0,0,.25);
+}
