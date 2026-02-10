@@ -328,7 +328,7 @@ function computeWorstCityAlert(city, dailyData) {
   return worst;
 }
 
-// -------------------- ✅ Carte points (OK) --------------------
+// -------------------- ✅ Carte points (FIX BÉTON) --------------------
 const DZ_BOUNDS = {
   latMin: 18.9,
   latMax: 37.2,
@@ -358,10 +358,14 @@ function renderDZLegend(countOk, countOrange, countRed) {
 function renderVigilanceMap(rows) {
   if (!dzMapEl) return;
 
+  // ✅ sécurité: la carte doit être relative
+  dzMapEl.style.position = "relative";
+
+  // effacer uniquement les anciens points
   dzMapEl.querySelectorAll(".dzDot").forEach(el => el.remove());
 
   const w = dzMapEl.clientWidth || 600;
-  const h = dzMapEl.clientHeight || 320;
+  const h = dzMapEl.clientHeight || 360;
 
   let countOk = 0, countOrange = 0, countRed = 0;
 
@@ -370,11 +374,36 @@ function renderVigilanceMap(rows) {
 
     const { left, top } = projectToMap(r.city.lat, r.city.lon, w, h);
 
-    const dot = document.createElement("div");
-    dot.className = "dzDot " + (r.level === "red" ? "red" : r.level === "orange" ? "orange" : "ok");
-    dot.style.left = `${left}px`;
-    dot.style.top = `${top}px`;
+    // ✅ bouton = clic fiable mobile + style en dur (CSS peut être cassé)
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "dzDot";
     dot.title = r.city.name;
+
+    const color =
+      r.level === "red" ? "#ff4d4d" :
+      r.level === "orange" ? "#ffb020" :
+      "#39ff88";
+
+    dot.style.cssText = `
+      position:absolute;
+      left:${left}px;
+      top:${top}px;
+      width:12px;
+      height:12px;
+      border-radius:999px;
+      border:2px solid rgba(0,0,0,.45);
+      background:${color};
+      box-shadow:0 0 0 6px rgba(0,0,0,.12);
+      transform:translate(-50%,-50%);
+      padding:0;
+      margin:0;
+      cursor:pointer;
+      z-index:5;
+      outline:none;
+      appearance:none;
+      -webkit-appearance:none;
+    `;
 
     if (r.level === "red") countRed++;
     else if (r.level === "orange") countOrange++;
@@ -408,8 +437,10 @@ async function refreshNationalAlerts() {
 
   renderNationalSummary(cleaned);
 
-  // ✅ petit délai pour que la carte ait une taille sur mobile
-  setTimeout(() => renderVigilanceMap(cleaned), 50);
+  // ✅ rendu carte après layout (mobile)
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => renderVigilanceMap(cleaned));
+  });
 
   setStatus("OK");
 }
